@@ -12,87 +12,149 @@ struct WelcomeView: View {
     let stylePreset: StylePreset
     let startAction: () -> Void
     let aboutAction: () -> Void
+
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
+    private var hPad: CGFloat { horizontalSizeClass == .compact ? 20 : 32 }
+
     var body: some View {
-        ScrollView {
-            VStack(spacing: 14) {
-                GlassSurface(stylePreset: stylePreset, cornerRadius: 30, padding: compact ? 18 : 24) {
-                    VStack(alignment: .leading, spacing: compact ? 14 : 18) {
-                        HStack(spacing: 12) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.primary.opacity(0.12))
-                                    .frame(width: compact ? 50 : 58, height: compact ? 50 : 58)
-                                Image(systemName: "eyedropper.halffull")
-                                    .font(.system(size: compact ? 23 : 27, weight: .semibold))
-                                    .foregroundStyle(.primary)
-                            }
-                            .accessibilityHidden(true)
+        VStack(spacing: 0) {
+            Spacer()
 
-                            Text("HueBridge")
-                                .font(compact ? .title.weight(.bold) : .largeTitle.weight(.bold))
-                        }
+            hero
+                .padding(.horizontal, hPad)
 
-                        Text("Design that everyone can read.")
-                            .font(compact ? .title3.weight(.semibold) : .title2.weight(.semibold))
-                            .foregroundStyle(.primary)
+            Spacer().frame(height: 44)
 
-                        Text("Build poster palettes with accessibility checks, color-vision simulation, and one-tap contrast fixes.")
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+            featureList
+                .padding(.horizontal, hPad)
 
-                        VStack(alignment: .leading, spacing: 10) {
-                            feature("3-step guided flow", icon: "list.number")
-                            feature("WCAG contrast feedback", icon: "checkmark.shield")
-                            feature("Offline and privacy-friendly", icon: "lock")
-                        }
-                    }
-                }
+            Spacer()
+        }
+        .safeAreaInset(edge: .bottom) {
+            ctaSection
+        }
+    }
 
-                GlassSurface(stylePreset: stylePreset, cornerRadius: 26, padding: compact ? 16 : 20) {
-                    VStack(spacing: 10) {
-                        Button(action: startAction) {
-                            Label("Start Palette Session", systemImage: "sparkles")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                                .frame(minHeight: 50)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .accessibilityHint("Begins palette generation")
+    // MARK: - Hero
 
-                        Button(action: aboutAction) {
-                            Text("About HueBridge")
-                                .font(.subheadline.weight(.semibold))
-                                .frame(maxWidth: .infinity)
-                                .frame(minHeight: 44)
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(.primary)
-                    }
-                }
+    private var hero: some View {
+        VStack(spacing: 24) {
+            appIcon
+
+            VStack(spacing: 10) {
+                Text("HueBridge")
+                    .font(.largeTitle.weight(.bold))
+
+                Text("Design that everyone can read.")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
-            .padding(.vertical, 10)
         }
-        .scrollIndicators(.hidden)
-        .frame(maxWidth: 720)
-        .frame(maxWidth: .infinity)
     }
 
-    private var compact: Bool {
-        horizontalSizeClass == .compact
+    private var appIcon: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(.regularMaterial)
+                .frame(width: 96, height: 96)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .stroke(.white.opacity(0.30), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.10), radius: 24, x: 0, y: 8)
+
+            Image(systemName: "eyedropper.halffull")
+                .font(.system(size: 42, weight: .medium))
+                .foregroundStyle(.tint)
+                .symbolRenderingMode(.hierarchical)
+        }
+        .accessibilityHidden(true)
     }
 
-    private func feature(_ text: String, icon: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 18)
-            Text(text)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+    // MARK: - Feature List
+
+    private var featureList: some View {
+        VStack(spacing: 0) {
+            featureRow(
+                "3-step guided workflow",
+                caption: "Gallery → Validate → Export",
+                icon: "list.number",
+                accent: .blue
+            )
+            Divider().padding(.leading, 58)
+            featureRow(
+                "WCAG contrast validation",
+                caption: "AA standard across all text roles",
+                icon: "checkmark.shield.fill",
+                accent: .green
+            )
+            Divider().padding(.leading, 58)
+            featureRow(
+                "Offline & privacy-friendly",
+                caption: "No network, no tracking",
+                icon: "lock.fill",
+                accent: .purple
+            )
         }
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(.primary.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    private func featureRow(_ title: String, caption: String, icon: String, accent: Color) -> some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(accent.opacity(0.16))
+                    .frame(width: 36, height: 36)
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(accent)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(.primary)
+                Text(caption)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+    }
+
+    // MARK: - Bottom CTA
+
+    private var ctaSection: some View {
+        VStack(spacing: 10) {
+            Button(action: startAction) {
+                Label("Get Started", systemImage: "sparkles")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityHint("Begins palette generation")
+
+            Button(action: aboutAction) {
+                Text("About HueBridge")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .frame(height: 44)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, hPad)
+        .padding(.top, 16)
+        .padding(.bottom, 20)
+        .background(.regularMaterial)
     }
 }
