@@ -11,7 +11,8 @@ import SwiftUI
 struct HueBridgeApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            HueBridgeRootView()
         }
     }
 }
+
