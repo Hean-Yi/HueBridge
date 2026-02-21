@@ -12,89 +12,42 @@ struct PaletteDetailView: View {
     @ObservedObject var viewModel: HueBridgeViewModel
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
+    private var hPad: CGFloat { horizontalSizeClass == .compact ? 20 : 28 }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: compact ? 14 : 16) {
-                header
-                stepPill
+        VStack(spacing: 0) {
+            navBar
+                .padding(.horizontal, hPad)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
 
-                if let palette = viewModel.selectedPalette {
-                    GlassSurface(stylePreset: viewModel.stylePreset, cornerRadius: 24, padding: 14) {
-                        PosterPreview(palette: palette, visionMode: viewModel.visionMode)
-                    }
-
-                    GlassSurface(stylePreset: viewModel.stylePreset, cornerRadius: 24, padding: 16) {
-                        VStack(alignment: .leading, spacing: 14) {
-                            Text("Readability checks")
-                                .font(.title3.weight(.semibold))
-
-                            ForEach(viewModel.selectedChecks) { item in
-                                CheckRowView(item: item)
-                            }
-                        }
-                    }
-
-                    GlassSurface(stylePreset: viewModel.stylePreset, cornerRadius: 24, padding: 16) {
-                        VStack(alignment: .leading, spacing: 14) {
-                            Text("Color vision simulation")
-                                .font(.headline)
-
-                            Picker("Color vision simulation", selection: $viewModel.visionMode) {
-                                ForEach(VisionMode.allCases) { mode in
-                                    Text(mode.rawValue).tag(mode)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                            .accessibilityLabel("Simulation mode")
-                            .accessibilityHint("Applies preview-only color vision simulation")
-
-                            oneTapFixButtons
-                        }
-                    }
-
-                    Button {
-                        viewModel.continueToResult()
-                    } label: {
-                        Text("Create Style Card")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .frame(minHeight: 48)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!viewModel.selectedPalettePasses)
-                    .accessibilityHint("Moves to final style card")
-
-                    if !viewModel.selectedPalettePasses {
-                        Text("Apply one-tap fixes until all checks pass.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .padding(.vertical, 10)
+            scrollContent
         }
-        .scrollIndicators(.hidden)
-        .frame(maxWidth: 760)
+        .safeAreaInset(edge: .bottom) {
+            ctaSection
+        }
         .frame(maxWidth: .infinity)
     }
 
-    private var header: some View {
-        HStack {
+    // MARK: - Pinned Navigation Bar
+
+    private var navBar: some View {
+        HStack(spacing: 8) {
             Button {
                 viewModel.backToGallery()
             } label: {
-                Label("Back", systemImage: "chevron.left")
-                    .frame(minHeight: 44)
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("Gallery")
+                        .font(.body.weight(.semibold))
+                }
+                .frame(height: 44)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Palette Detail")
-                    .font(compact ? .title3.weight(.bold) : .title2.weight(.bold))
-                Text("Tune and validate")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+            .foregroundStyle(.tint)
+            .accessibilityLabel("Back to Gallery")
 
             Spacer()
 
@@ -103,63 +56,163 @@ struct PaletteDetailView: View {
                     title: viewModel.candidatePasses(palette) ? "Pass" : "Needs Fix",
                     isPositive: viewModel.candidatePasses(palette)
                 )
-                .accessibilityLabel("Overall status")
+                .accessibilityLabel("Overall status: \(viewModel.candidatePasses(palette) ? "Pass" : "Needs Fix")")
             }
         }
     }
 
-    private var oneTapFixButtons: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 10) {
-                fixButton(
-                    title: "Make text darker",
-                    icon: "textformat",
-                    action: viewModel.makeTextDarker
-                )
-                fixButton(
-                    title: "Lighten background",
-                    icon: "sun.max",
-                    action: viewModel.lightenBackground
-                )
-            }
+    // MARK: - Scrollable Content
 
-            VStack(spacing: 10) {
-                fixButton(
-                    title: "Make text darker",
-                    icon: "textformat",
-                    action: viewModel.makeTextDarker
-                )
-                fixButton(
-                    title: "Lighten background",
-                    icon: "sun.max",
-                    action: viewModel.lightenBackground
-                )
+    private var scrollContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                pageTitleBlock
+                    .padding(.horizontal, hPad)
+
+                if let palette = viewModel.selectedPalette {
+                    GlassSurface(stylePreset: viewModel.stylePreset, cornerRadius: 20, padding: 14) {
+                        PosterPreview(palette: palette, visionMode: viewModel.visionMode)
+                    }
+                    .padding(.horizontal, hPad)
+
+                    checksCard
+                        .padding(.horizontal, hPad)
+
+                    simulationCard
+                        .padding(.horizontal, hPad)
+
+                    if !viewModel.selectedPalettePasses {
+                        hintRow
+                            .padding(.horizontal, hPad)
+                    }
+                }
+
+                Spacer().frame(height: 8)
+            }
+            .padding(.bottom, 8)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private var pageTitleBlock: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(viewModel.selectedPalette?.template.rawValue ?? "Palette")
+                .font(.title.weight(.bold))
+
+            Label("Step 2 of 3  ·  Tune and validate", systemImage: "2.circle.fill")
+                .symbolRenderingMode(.hierarchical)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - Readability Checks Card
+
+    private var checksCard: some View {
+        GlassSurface(stylePreset: viewModel.stylePreset, cornerRadius: 20, padding: 16) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Readability Checks")
+                    .font(.title3.weight(.semibold))
+
+                VStack(spacing: 0) {
+                    ForEach(Array(viewModel.selectedChecks.enumerated()), id: \.offset) { index, item in
+                        if index > 0 { Divider() }
+                        CheckRowView(item: item)
+                    }
+                }
             }
         }
     }
 
-    private func fixButton(title: String, icon: String, action: @escaping () -> Void) -> some View {
+    // MARK: - Simulation + Fixes Card
+
+    private var simulationCard: some View {
+        GlassSurface(stylePreset: viewModel.stylePreset, cornerRadius: 20, padding: 16) {
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "eye")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text("Color Vision Simulation")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    Picker("Color vision simulation", selection: $viewModel.visionMode) {
+                        ForEach(VisionMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityLabel("Simulation mode")
+                    .accessibilityHint("Applies preview-only color vision simulation")
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "wand.and.sparkles")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text("One-tap Fixes")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack(spacing: 10) {
+                        fixButton("Darken Text", icon: "textformat", action: viewModel.makeTextDarker)
+                        fixButton("Lighten Background", icon: "sun.max", action: viewModel.lightenBackground)
+                    }
+                }
+            }
+        }
+    }
+
+    private func fixButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(title, systemImage: icon)
+                .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity)
-                .frame(minHeight: 44)
+                .frame(height: 44)
         }
         .buttonStyle(.bordered)
         .accessibilityLabel(title)
     }
 
-    private var stepPill: some View {
+    // MARK: - Hint Row
+
+    private var hintRow: some View {
         HStack(spacing: 8) {
-            Image(systemName: "2.circle.fill")
-                .symbolRenderingMode(.hierarchical)
-            Text("Step 2 of 3 · Tune and validate")
-                .font(.subheadline.weight(.medium))
+            Image(systemName: "lightbulb")
+                .font(.subheadline)
+                .foregroundStyle(.orange)
+            Text("Apply fixes until all checks show Pass.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         }
-        .foregroundStyle(.secondary)
-        .frame(minHeight: 32)
     }
 
-    private var compact: Bool {
-        horizontalSizeClass == .compact
+    // MARK: - Bottom CTA
+
+    private var ctaSection: some View {
+        VStack(spacing: 0) {
+            Divider()
+            Button {
+                viewModel.continueToResult()
+            } label: {
+                Text("Create Style Card")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!viewModel.selectedPalettePasses)
+            .padding(.horizontal, hPad)
+            .padding(.top, 12)
+            .padding(.bottom, 20)
+            .accessibilityHint("Moves to the final style card")
+        }
+        .background(.regularMaterial)
     }
 }

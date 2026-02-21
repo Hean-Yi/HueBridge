@@ -14,24 +14,19 @@ import UIKit
 struct HueBridgeRootView: View {
     @StateObject private var viewModel = HueBridgeViewModel()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
-        GeometryReader { proxy in
-            let horizontalPadding = layoutPadding(for: proxy.size.width)
-            let verticalPadding: CGFloat = horizontalSizeClass == .compact ? 12 : 18
+        ZStack {
+            AppBackdrop(stylePreset: viewModel.stylePreset)
+                .ignoresSafeArea()
 
-            ZStack {
-                AppBackdrop(stylePreset: viewModel.stylePreset)
-                    .ignoresSafeArea()
-
-                content
-                    .padding(.horizontal, horizontalPadding)
-                    .padding(.vertical, verticalPadding)
-                    .frame(maxWidth: 820)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: viewModel.stage)
-            }
+            content
+                .frame(maxWidth: 820)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .animation(
+                    reduceMotion ? nil : .spring(duration: 0.42, bounce: 0.04),
+                    value: viewModel.stage
+                )
         }
         .sheet(isPresented: $viewModel.showAbout) {
             AboutView(stylePreset: $viewModel.stylePreset)
@@ -66,12 +61,6 @@ struct HueBridgeRootView: View {
             insertion: .opacity.combined(with: .move(edge: .trailing)),
             removal: .opacity.combined(with: .move(edge: .leading))
         )
-    }
-
-    private func layoutPadding(for width: CGFloat) -> CGFloat {
-        let compactPadding: CGFloat = 14
-        let regularPadding: CGFloat = 24
-        return width < 390 ? compactPadding : regularPadding
     }
 }
 
