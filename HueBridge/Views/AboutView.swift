@@ -31,11 +31,38 @@ struct AboutView: View {
                         }
                     }
                     .pickerStyle(.segmented)
+
+                    Text("Visual style also available in Gallery view.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
-                Section("Credits") {
-                    Label("WCAG 2 contrast ratio reference", systemImage: "doc.text")
-                    Label("Machado et al. CVD simulation", systemImage: "eye")
+                Section {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("WCAG 2 — Web Content Accessibility Guidelines", systemImage: "doc.text")
+                        Text("The standard for measuring text readability. A ratio of 4.5:1 means the lighter color is 4.5x brighter than the darker one.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 2)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("Machado et al. CVD simulation", systemImage: "eye")
+                        Text("Research-based color transforms that show how people with color vision deficiency perceive colors.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 2)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("Delta E (ΔE) — Color difference", systemImage: "circle.lefthalf.filled")
+                        Text("Measures how different two colors look. Values below 10 mean colors might be confused.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 2)
+                } header: {
+                    Text("Glossary")
                 }
             }
             .navigationTitle("About")

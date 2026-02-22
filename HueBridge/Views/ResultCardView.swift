@@ -13,6 +13,7 @@ import UIKit
 
 struct ResultCardView: View {
     @ObservedObject var viewModel: HueBridgeViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var copied = false
     @State private var exportedImage: UIImage?
     @State private var showShareSheet = false
@@ -42,6 +43,8 @@ struct ResultCardView: View {
 
                     styleCard(for: palette)
 
+                    exportFormatSection(for: palette)
+
                     guidanceSection(for: palette)
 
                     actionsSection
@@ -59,9 +62,9 @@ struct ResultCardView: View {
                     performCopy()
                 } label: {
                     Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                        .contentTransition(.symbolEffect(.replace))
+                        .contentTransition(reduceMotion ? .identity : .symbolEffect(.replace))
                 }
-                .accessibilityLabel("Copy HEX values")
+                .accessibilityLabel("Copy color values")
             }
         }
         .background(.clear)
@@ -109,7 +112,35 @@ struct ResultCardView: View {
                     }
                 }
             }
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .glassSurface(viewModel.stylePreset)
+        }
+    }
+
+    // MARK: - Export Format
+
+    @ViewBuilder
+    private func exportFormatSection(for palette: PaletteCandidate) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Export format")
+                    .font(.headline)
+                Spacer()
+                Picker("Format", selection: $viewModel.exportFormat) {
+                    ForEach(HueBridgeViewModel.ExportFormat.allCases) { format in
+                        Text(format.rawValue).tag(format)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 200)
+            }
+            .padding(.horizontal, 4)
+
+            Text(viewModel.exportText(for: palette))
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .glassSurface(viewModel.stylePreset, cornerRadius: 12)
         }
     }
 
@@ -132,7 +163,7 @@ struct ResultCardView: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .glassSurface(viewModel.stylePreset)
         }
     }
 
@@ -140,7 +171,6 @@ struct ResultCardView: View {
 
     private var actionsSection: some View {
         VStack(spacing: 12) {
-            // Primary: Export poster image
             Button {
                 exportPosterImage()
             } label: {
@@ -153,19 +183,18 @@ struct ResultCardView: View {
             .controlSize(.large)
             .accessibilityLabel("Export poster as image")
 
-            // Secondary: Copy HEX values
             Button {
                 performCopy()
             } label: {
-                Label(copied ? "Copied!" : "Copy HEX Values", systemImage: copied ? "checkmark" : "doc.on.doc")
+                Label(copied ? "Copied!" : "Copy \(viewModel.exportFormat.rawValue) Values", systemImage: copied ? "checkmark" : "doc.on.doc")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
-                    .contentTransition(.symbolEffect(.replace))
+                    .contentTransition(reduceMotion ? .identity : .symbolEffect(.replace))
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
-            .accessibilityLabel("Copy HEX values")
+            .accessibilityLabel("Copy color values")
 
             HStack(spacing: 12) {
                 Button {
@@ -201,13 +230,13 @@ struct ResultCardView: View {
         #if canImport(UIKit)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         #endif
-        withAnimation(.easeInOut(duration: 0.2)) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
             copied = true
         }
         Task {
             try? await Task.sleep(for: .seconds(2))
             await MainActor.run {
-                withAnimation { copied = false }
+                withAnimation(reduceMotion ? nil : .default) { copied = false }
             }
         }
     }

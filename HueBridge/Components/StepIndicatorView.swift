@@ -13,6 +13,8 @@ struct StepIndicatorView: View {
     let totalSteps: Int = 3
     let subtitle: String
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         HStack(spacing: 10) {
             HStack(spacing: 6) {
@@ -20,7 +22,7 @@ struct StepIndicatorView: View {
                     Circle()
                         .fill(step == currentStep ? Color.accentColor : Color.primary.opacity(0.18))
                         .frame(width: step == currentStep ? 10 : 7, height: step == currentStep ? 10 : 7)
-                        .animation(.spring(duration: 0.3), value: currentStep)
+                        .animation(reduceMotion ? nil : .spring(duration: 0.3), value: currentStep)
                 }
             }
 
@@ -28,5 +30,7 @@ struct StepIndicatorView: View {
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Step \(currentStep) of \(totalSteps), \(subtitle)")
     }
 }

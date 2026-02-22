@@ -14,7 +14,7 @@ struct PaletteGalleryView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Pick a base color and compare three inclusive templates.")
+                Text("Pick a base color and compare inclusive templates.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 4)
@@ -23,10 +23,14 @@ struct PaletteGalleryView: View {
 
                 controls
 
+                stylePresetPicker
+
                 ForEach(viewModel.candidates) { candidate in
                     PaletteCard(
                         palette: candidate,
                         passes: viewModel.candidatePasses(candidate),
+                        passesNormal: viewModel.candidatePassesNormal(candidate),
+                        stylePreset: viewModel.stylePreset,
                         onTap: { viewModel.openDetails(for: candidate) }
                     )
                 }
@@ -89,12 +93,19 @@ struct PaletteGalleryView: View {
                         Button {
                             viewModel.choosePreset(preset)
                         } label: {
-                            HStack(spacing: 7) {
-                                Circle()
-                                    .fill(preset.color.color)
-                                    .frame(width: 14, height: 14)
-                                Text(preset.name)
-                                    .font(.subheadline.weight(.medium))
+                            VStack(spacing: 4) {
+                                HStack(spacing: 7) {
+                                    Circle()
+                                        .fill(preset.color.color)
+                                        .frame(width: 14, height: 14)
+                                    Text(preset.name)
+                                        .font(.subheadline.weight(.medium))
+                                }
+                                if !preset.subtitle.isEmpty {
+                                    Text(preset.subtitle)
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(.tertiary)
+                                }
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
@@ -104,14 +115,32 @@ struct PaletteGalleryView: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("\(preset.name) preset")
+                        .accessibilityLabel("\(preset.name) preset, \(preset.subtitle)")
                         .accessibilityAddTraits(isSelected ? .isSelected : [])
                     }
                 }
             }
         }
         .padding(16)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .glassSurface(viewModel.stylePreset, cornerRadius: 20)
+    }
+
+    // MARK: - Style Preset Picker
+
+    private var stylePresetPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Visual style")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+
+            Picker("Style", selection: $viewModel.stylePreset) {
+                ForEach(StylePreset.allCases) { preset in
+                    Text(preset.rawValue).tag(preset)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
     }
 
     // MARK: - Step

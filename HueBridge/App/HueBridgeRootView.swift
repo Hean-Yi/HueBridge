@@ -22,7 +22,8 @@ struct HueBridgeRootView: View {
             NavigationStack(path: $viewModel.navigationPath) {
                 WelcomeView(
                     startAction: viewModel.startExperience,
-                    aboutAction: { viewModel.showAbout = true }
+                    aboutAction: { viewModel.showAbout = true },
+                    stylePreset: viewModel.stylePreset
                 )
                 .navigationDestination(for: HueBridgeViewModel.Stage.self) { stage in
                     switch stage {

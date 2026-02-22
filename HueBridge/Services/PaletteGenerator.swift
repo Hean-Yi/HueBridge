@@ -12,7 +12,13 @@ struct PaletteGenerator {
     private let contrastService = ContrastService()
 
     func generate(base: RGBA) -> [PaletteCandidate] {
-        [airyPoster(base: base), nightPoster(base: base), neutralStudio(base: base)]
+        [
+            airyPoster(base: base),
+            nightPoster(base: base),
+            neutralStudio(base: base),
+            boldPoster(base: base),
+            socialCard(base: base)
+        ]
     }
 
     private func airyPoster(base: RGBA) -> PaletteCandidate {
@@ -86,6 +92,59 @@ struct PaletteGenerator {
                 "Use for handouts, educational apps, and portfolio cards.",
                 "Neutral backgrounds reduce visual fatigue during reading.",
                 "Accent and button tones should guide attention sparingly."
+            ]
+        )
+    }
+
+    private func boldPoster(base: RGBA) -> PaletteCandidate {
+        // Saturated background keeping the base hue prominent
+        let background = base
+            .adjusting(brightness: 0.05, saturation: 0.15)
+            .mixed(with: .white, amount: 0.10)
+        let accent = base
+            .mixed(with: .white, amount: 0.70)
+            .adjusting(brightness: 0.15, saturation: -0.10)
+        let text = contrastService.bestTextColor(on: background)
+        let buttonBackground = RGBA.white.mixed(with: base, amount: 0.12)
+        let buttonText = contrastService.bestTextColor(on: buttonBackground)
+
+        return PaletteCandidate(
+            template: .boldPoster,
+            background: background,
+            text: text,
+            accent: accent,
+            buttonBackground: buttonBackground,
+            buttonText: buttonText,
+            guidance: [
+                "Use for high-energy events, concerts, and sports posters.",
+                "The vivid background grabs attention — keep text brief.",
+                "White button stands out against the saturated base."
+            ]
+        )
+    }
+
+    private func socialCard(base: RGBA) -> PaletteCandidate {
+        // Warm, approachable tones for social media cards
+        let warmNeutral = RGBA(red: 0.98, green: 0.96, blue: 0.93)
+        let background = warmNeutral
+            .mixed(with: base, amount: 0.08)
+            .adjusting(brightness: 0.02, saturation: -0.08)
+        let accent = base.adjusting(brightness: -0.05, saturation: 0.12)
+        let text = contrastService.bestTextColor(on: background)
+        let buttonBackground = accent.mixed(with: .black, amount: 0.05)
+        let buttonText = contrastService.bestTextColor(on: buttonBackground)
+
+        return PaletteCandidate(
+            template: .socialCard,
+            background: background,
+            text: text,
+            accent: accent,
+            buttonBackground: buttonBackground,
+            buttonText: buttonText,
+            guidance: [
+                "Use for Instagram stories, LinkedIn posts, and social banners.",
+                "Warm neutrals feel approachable and modern on feeds.",
+                "Keep the accent for one key visual element."
             ]
         )
     }

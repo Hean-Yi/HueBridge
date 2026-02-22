@@ -15,6 +15,30 @@ struct PosterContent {
     var body: String = "Design that everyone can read. Build posters with clear contrast and inclusive color choices."
     var buttonText: String = "Join Now"
     var venue: String = "Hall B"
+
+    // Creative elements
+    var showBadge: Bool = true
+    var badgeText: String = "NEW"
+    var showDivider: Bool = true
+    var showDecorativeDots: Bool = true
+    var showAccentShape: Bool = true
+    var layoutStyle: PosterLayoutStyle = .standard
+}
+
+enum PosterLayoutStyle: String, CaseIterable, Identifiable {
+    case standard = "Standard"
+    case centered = "Centered"
+    case editorial = "Editorial"
+
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .standard:  return "text.alignleft"
+        case .centered:  return "text.aligncenter"
+        case .editorial: return "text.justify.leading"
+        }
+    }
 }
 
 enum PosterSize: String, CaseIterable, Identifiable {
