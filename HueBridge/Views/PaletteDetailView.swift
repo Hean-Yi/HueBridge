@@ -13,6 +13,7 @@ import UIKit
 
 struct PaletteDetailView: View {
     @ObservedObject var viewModel: HueBridgeViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollView {
@@ -29,6 +30,8 @@ struct PaletteDetailView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
                     posterSettingsSection
+
+                    creativeControlsSection
 
                     inclusiveCoverageSection
 
@@ -58,7 +61,7 @@ struct PaletteDetailView: View {
                         Label(
                             failingModes.isEmpty
                                 ? "Apply one-tap fixes until all checks pass."
-                                : "Issues in \(failingModes.joined(separator: ", ")). Apply fixes or try a different base color.",
+                                : "Issues in \(failingModes.joined(separator: ", ")). Try Auto Fix or adjust base color.",
                             systemImage: "lightbulb.fill"
                         )
                         .font(.subheadline)
@@ -83,6 +86,83 @@ struct PaletteDetailView: View {
             }
         }
         .background(.clear)
+    }
+
+    // MARK: - Creative Controls
+
+    private var creativeControlsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Creative options")
+                .font(.headline)
+                .padding(.horizontal, 4)
+
+            VStack(spacing: 0) {
+                // Layout style picker
+                HStack {
+                    Text("Layout")
+                        .font(.subheadline.weight(.medium))
+                    Spacer()
+                    Picker("Layout", selection: $viewModel.posterContent.layoutStyle) {
+                        ForEach(PosterLayoutStyle.allCases) { style in
+                            Label(style.rawValue, systemImage: style.icon).tag(style)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 240)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+
+                Divider().padding(.leading, 14)
+
+                // Badge toggle
+                HStack {
+                    Label("Badge tag", systemImage: "tag.fill")
+                        .font(.subheadline.weight(.medium))
+                    Spacer()
+                    if viewModel.posterContent.showBadge {
+                        TextField("Badge", text: $viewModel.posterContent.badgeText)
+                            .font(.caption)
+                            .textFieldStyle(.plain)
+                            .frame(width: 60)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    Toggle("", isOn: $viewModel.posterContent.showBadge)
+                        .labelsHidden()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+
+                Divider().padding(.leading, 14)
+
+                // Decorative toggles
+                Toggle(isOn: $viewModel.posterContent.showDivider) {
+                    Label("Decorative divider", systemImage: "minus")
+                        .font(.subheadline.weight(.medium))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+
+                Divider().padding(.leading, 14)
+
+                Toggle(isOn: $viewModel.posterContent.showDecorativeDots) {
+                    Label("Dot grid pattern", systemImage: "circle.grid.3x3")
+                        .font(.subheadline.weight(.medium))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+
+                Divider().padding(.leading, 14)
+
+                Toggle(isOn: $viewModel.posterContent.showAccentShape) {
+                    Label("Accent shapes", systemImage: "circle")
+                        .font(.subheadline.weight(.medium))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+            }
+            .glassSurface(viewModel.stylePreset)
+        }
     }
 
     // MARK: - Inclusive Coverage
@@ -112,13 +192,13 @@ struct PaletteDetailView: View {
                     }
                 }
             }
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .glassSurface(viewModel.stylePreset)
         }
     }
 
     private func modeRow(status: HueBridgeViewModel.ModeStatus) -> some View {
         Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                 viewModel.visionMode = status.mode
             }
         } label: {
@@ -127,9 +207,14 @@ struct PaletteDetailView: View {
                     .foregroundStyle(status.passes ? Color.green : Color.red)
                     .font(.title3)
 
-                Text(status.mode.rawValue)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.primary)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(status.mode.rawValue)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.primary)
+                    Text(status.mode.friendlyDescription)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
 
                 Spacer()
 
@@ -150,6 +235,7 @@ struct PaletteDetailView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(status.mode.rawValue), \(status.mode.friendlyDescription), \(status.passes ? "Pass" : "\(status.issueCount) issues")")
     }
 
     // MARK: - Checks
@@ -176,7 +262,7 @@ struct PaletteDetailView: View {
                     }
                 }
             }
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .glassSurface(viewModel.stylePreset)
         }
     }
 
@@ -204,7 +290,7 @@ struct PaletteDetailView: View {
                     }
                 }
             }
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .glassSurface(viewModel.stylePreset)
         }
     }
 
@@ -212,15 +298,36 @@ struct PaletteDetailView: View {
 
     private var fixButtonsSection: some View {
         VStack(spacing: 10) {
+            // Primary: Auto Fix All
+            if !viewModel.selectedPalettePasses {
+                Button {
+                    viewModel.autoFixAll()
+                    #if canImport(UIKit)
+                    UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                    #endif
+                } label: {
+                    Label("Auto Fix All", systemImage: "wand.and.stars")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+                .controlSize(.large)
+                .accessibilityLabel("Auto fix all contrast issues")
+                .accessibilityHint("Automatically darkens text and lightens background to pass all checks")
+            }
+
+            // Secondary: Manual fixes
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 10) {
-                    fixButton(title: "Make text darker", icon: "textformat", action: viewModel.makeTextDarker)
-                    fixButton(title: "Lighten background", icon: "sun.max", action: viewModel.lightenBackground)
+                    fixButton(title: "Darken text", icon: "textformat", action: viewModel.makeTextDarker)
+                    fixButton(title: "Lighten BG", icon: "sun.max", action: viewModel.lightenBackground)
                 }
 
                 VStack(spacing: 10) {
-                    fixButton(title: "Make text darker", icon: "textformat", action: viewModel.makeTextDarker)
-                    fixButton(title: "Lighten background", icon: "sun.max", action: viewModel.lightenBackground)
+                    fixButton(title: "Darken text", icon: "textformat", action: viewModel.makeTextDarker)
+                    fixButton(title: "Lighten BG", icon: "sun.max", action: viewModel.lightenBackground)
                 }
             }
 
@@ -237,11 +344,11 @@ struct PaletteDetailView: View {
                 }
                 .buttonStyle(.bordered)
                 .tint(.secondary)
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
                 .accessibilityLabel("Undo last fix")
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: viewModel.canUndo)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: viewModel.canUndo)
     }
 
     private func fixButton(title: String, icon: String, action: @escaping () -> Void) -> some View {
@@ -301,7 +408,7 @@ struct PaletteDetailView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
             }
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .glassSurface(viewModel.stylePreset)
         }
     }
 

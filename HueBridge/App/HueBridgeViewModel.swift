@@ -20,6 +20,14 @@ final class HueBridgeViewModel: ObservableObject {
         case result
     }
 
+    enum ExportFormat: String, CaseIterable, Identifiable {
+        case hex = "HEX"
+        case css = "CSS"
+        case rgb = "RGB"
+
+        var id: String { rawValue }
+    }
+
     @Published var navigationPath: [Stage] = []
     @Published var showAbout = false
 
@@ -30,6 +38,7 @@ final class HueBridgeViewModel: ObservableObject {
     @Published var visionMode: VisionMode = .normal
     @Published var posterContent = PosterContent()
     @Published var posterSize: PosterSize = .portrait
+    @Published var exportFormat: ExportFormat = .hex
 
     @Published var baseColor: RGBA
     @Published var candidates: [PaletteCandidate] = []
@@ -72,10 +81,7 @@ final class HueBridgeViewModel: ObservableObject {
     /// True only when every vision mode passes both contrast and distinguishability.
     var inclusivePasses: Bool {
         guard let palette = selectedPalette else { return false }
-        return VisionMode.allCases.allSatisfy { mode in
-            checks(for: palette, mode: mode).allSatisfy(\.isPass) &&
-            distinguishabilityChecks(for: palette, mode: mode).allSatisfy(\.isPass)
-        }
+        return candidatePassesInclusive(palette)
     }
 
     struct ModeStatus: Identifiable {
@@ -128,7 +134,6 @@ final class HueBridgeViewModel: ObservableObject {
     }
 
     func backToChooseAnother() {
-        // Pop back to gallery (remove detail + result from path)
         navigationPath = [.gallery]
     }
 
@@ -181,13 +186,28 @@ final class HueBridgeViewModel: ObservableObject {
         ]
     }
 
+    /// Gallery badge now reflects inclusive (all-modes) pass status.
     func candidatePasses(_ candidate: PaletteCandidate) -> Bool {
-        checks(for: candidate).allSatisfy(\CheckItem.isPass)
+        candidatePassesInclusive(candidate)
     }
+
+    /// Checks whether a candidate passes contrast and distinguishability across ALL vision modes.
+    func candidatePassesInclusive(_ candidate: PaletteCandidate) -> Bool {
+        VisionMode.allCases.allSatisfy { mode in
+            checks(for: candidate, mode: mode).allSatisfy(\.isPass) &&
+            distinguishabilityChecks(for: candidate, mode: mode).allSatisfy(\.isPass)
+        }
+    }
+
+    /// Quick summary for gallery: normal-only pass status.
+    func candidatePassesNormal(_ candidate: PaletteCandidate) -> Bool {
+        checks(for: candidate, mode: .normal).allSatisfy(\.isPass)
+    }
+
+    // MARK: - Fixes
 
     func makeTextDarker() {
         updateSelectedPalette { [contrastService, cvdService] palette in
-            // Find the worst-case mode for each pair and compute precise mix amounts
             let textAmount = VisionMode.allCases.compactMap { mode -> Double? in
                 let simText = cvdService.simulate(palette.text, mode: mode)
                 let simBg = cvdService.simulate(palette.background, mode: mode)
@@ -226,7 +246,6 @@ final class HueBridgeViewModel: ObservableObject {
 
     func lightenBackground() {
         updateSelectedPalette { [contrastService, cvdService] palette in
-            // Find the minimum lightening that satisfies the hardest constraint across all modes
             let amount = VisionMode.allCases.compactMap { mode -> Double? in
                 let simBg = cvdService.simulate(palette.background, mode: mode)
                 let simText = cvdService.simulate(palette.text, mode: mode)
@@ -247,6 +266,12 @@ final class HueBridgeViewModel: ObservableObject {
         }
     }
 
+    /// One-tap auto-fix: applies both text darkening and background lightening.
+    func autoFixAll() {
+        makeTextDarker()
+        lightenBackground()
+    }
+
     func undoFix() {
         guard let previous = undoStack.popLast(),
               let index = candidates.firstIndex(where: { $0.id == previous.id }) else {
@@ -255,14 +280,56 @@ final class HueBridgeViewModel: ObservableObject {
         candidates[index] = previous
     }
 
+    // MARK: - Export
+
     func exportText(for palette: PaletteCandidate) -> String {
+        switch exportFormat {
+        case .hex:
+            return exportHex(for: palette)
+        case .css:
+            return exportCSS(for: palette)
+        case .rgb:
+            return exportRGB(for: palette)
+        }
+    }
+
+    private func exportHex(for palette: PaletteCandidate) -> String {
         [
-            "HueBridge Style Card",
-            "Background: \(hexFormatter.hexString(for: palette.background))",
-            "Text: \(hexFormatter.hexString(for: palette.text))",
-            "Accent: \(hexFormatter.hexString(for: palette.accent))",
+            "HueBridge Style Card — \(palette.template.rawValue)",
+            "",
+            "Background:        \(hexFormatter.hexString(for: palette.background))",
+            "Text:              \(hexFormatter.hexString(for: palette.text))",
+            "Accent:            \(hexFormatter.hexString(for: palette.accent))",
             "Button Background: \(hexFormatter.hexString(for: palette.buttonBackground))",
-            "Button Text: \(hexFormatter.hexString(for: palette.buttonText))"
+            "Button Text:       \(hexFormatter.hexString(for: palette.buttonText))"
+        ].joined(separator: "\n")
+    }
+
+    private func exportCSS(for palette: PaletteCandidate) -> String {
+        [
+            "/* HueBridge — \(palette.template.rawValue) */",
+            ":root {",
+            "  --color-background: \(hexFormatter.hexString(for: palette.background));",
+            "  --color-text: \(hexFormatter.hexString(for: palette.text));",
+            "  --color-accent: \(hexFormatter.hexString(for: palette.accent));",
+            "  --color-button-bg: \(hexFormatter.hexString(for: palette.buttonBackground));",
+            "  --color-button-text: \(hexFormatter.hexString(for: palette.buttonText));",
+            "}"
+        ].joined(separator: "\n")
+    }
+
+    private func exportRGB(for palette: PaletteCandidate) -> String {
+        func rgb(_ c: RGBA) -> String {
+            "rgb(\(Int(round(c.red * 255))), \(Int(round(c.green * 255))), \(Int(round(c.blue * 255))))"
+        }
+        return [
+            "HueBridge Style Card — \(palette.template.rawValue)",
+            "",
+            "Background:        \(rgb(palette.background))",
+            "Text:              \(rgb(palette.text))",
+            "Accent:            \(rgb(palette.accent))",
+            "Button Background: \(rgb(palette.buttonBackground))",
+            "Button Text:       \(rgb(palette.buttonText))"
         ].joined(separator: "\n")
     }
 
@@ -312,7 +379,6 @@ final class HueBridgeViewModel: ObservableObject {
             return
         }
 
-        // Push current state onto undo stack before mutating
         undoStack.append(candidates[index])
 
         var palette = candidates[index]

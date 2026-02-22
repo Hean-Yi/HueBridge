@@ -11,6 +11,7 @@ import SwiftUI
 struct WelcomeView: View {
     let startAction: () -> Void
     let aboutAction: () -> Void
+    var stylePreset: StylePreset = .frostedGlass
 
     var body: some View {
         ScrollView {
@@ -72,14 +73,21 @@ struct WelcomeView: View {
         VStack(spacing: 0) {
             featureRow(
                 "3-step guided flow",
-                subtitle: "Pick, tune, and export",
+                subtitle: "Pick, tune, and export — under 3 minutes",
                 icon: "list.number",
                 color: .blue
             )
             Divider().padding(.leading, 66)
             featureRow(
+                "Color-vision simulation",
+                subtitle: "Preview how 8% of people see your design",
+                icon: "eye.trianglebadge.exclamationmark",
+                color: .purple
+            )
+            Divider().padding(.leading, 66)
+            featureRow(
                 "WCAG contrast checks",
-                subtitle: "Real-time readability feedback",
+                subtitle: "Ensures text is readable for everyone",
                 icon: "checkmark.shield.fill",
                 color: .green
             )
@@ -91,7 +99,7 @@ struct WelcomeView: View {
                 color: .orange
             )
         }
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .glassSurface(stylePreset)
     }
 
     private func featureRow(_ title: String, subtitle: String, icon: String, color: Color) -> some View {

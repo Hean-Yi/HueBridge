@@ -12,6 +12,28 @@ enum PaletteTemplate: String, CaseIterable, Hashable {
     case airyPoster = "Airy Poster"
     case nightPoster = "Night Poster"
     case neutralStudio = "Neutral Studio"
+    case boldPoster = "Bold Poster"
+    case socialCard = "Social Card"
+
+    var subtitle: String {
+        switch self {
+        case .airyPoster:     return "Light, breezy, and fresh"
+        case .nightPoster:    return "Dark, high-contrast drama"
+        case .neutralStudio:  return "Clean, minimal, professional"
+        case .boldPoster:     return "Vivid, eye-catching, energetic"
+        case .socialCard:     return "Trendy, warm, social-ready"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .airyPoster:     return "cloud.sun"
+        case .nightPoster:    return "moon.stars"
+        case .neutralStudio:  return "book"
+        case .boldPoster:     return "bolt.fill"
+        case .socialCard:     return "square.and.arrow.up"
+        }
+    }
 }
 
 struct PaletteCandidate: Identifiable, Hashable {
