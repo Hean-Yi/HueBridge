@@ -17,6 +17,8 @@ struct CVDService {
             return applyMatrix(color, matrix: deuteranopia)
         case .protanopia:
             return applyMatrix(color, matrix: protanopia)
+        case .tritanopia:
+            return applyMatrix(color, matrix: tritanopia)
         case .grayscale:
             let gray = 0.299 * color.red + 0.587 * color.green + 0.114 * color.blue
             return RGBA(red: gray, green: gray, blue: gray, alpha: color.alpha)
@@ -46,6 +48,13 @@ struct CVDService {
         [0.367322, 0.860646, -0.227968],
         [0.280085, 0.672501, 0.047413],
         [-0.011820, 0.042940, 0.968881]
+    ]
+
+    // Machado et al. severity 1.0 tritanopia matrix
+    private let tritanopia: [[Double]] = [
+        [1.255528, -0.076749, -0.178779],
+        [-0.078411, 0.930809, 0.147602],
+        [0.004733, 0.691367, 0.303900]
     ]
 }
 

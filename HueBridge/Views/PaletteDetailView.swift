@@ -7,212 +7,333 @@
 
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct PaletteDetailView: View {
     @ObservedObject var viewModel: HueBridgeViewModel
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-
-    private var hPad: CGFloat { horizontalSizeClass == .compact ? 20 : 28 }
 
     var body: some View {
-        VStack(spacing: 0) {
-            navBar
-                .padding(.horizontal, hPad)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
-
-            scrollContent
-        }
-        .safeAreaInset(edge: .bottom) {
-            ctaSection
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    // MARK: - Pinned Navigation Bar
-
-    private var navBar: some View {
-        HStack(spacing: 8) {
-            Button {
-                viewModel.backToGallery()
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("Gallery")
-                        .font(.body.weight(.semibold))
-                }
-                .frame(height: 44)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.tint)
-            .accessibilityLabel("Back to Gallery")
-
-            Spacer()
-
-            if let palette = viewModel.selectedPalette {
-                BadgeView(
-                    title: viewModel.candidatePasses(palette) ? "Pass" : "Needs Fix",
-                    isPositive: viewModel.candidatePasses(palette)
-                )
-                .accessibilityLabel("Overall status: \(viewModel.candidatePasses(palette) ? "Pass" : "Needs Fix")")
-            }
-        }
-    }
-
-    // MARK: - Scrollable Content
-
-    private var scrollContent: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                pageTitleBlock
-                    .padding(.horizontal, hPad)
+            VStack(alignment: .leading, spacing: 16) {
+                stepPill
 
                 if let palette = viewModel.selectedPalette {
-                    GlassSurface(stylePreset: viewModel.stylePreset, cornerRadius: 20, padding: 14) {
-                        PosterPreview(palette: palette, visionMode: viewModel.visionMode)
+                    PosterPreview(
+                        palette: palette,
+                        visionMode: viewModel.visionMode,
+                        content: viewModel.posterContent,
+                        posterSize: viewModel.posterSize
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+
+                    posterSettingsSection
+
+                    inclusiveCoverageSection
+
+                    checksSection
+
+                    distinguishabilitySection
+
+                    fixButtonsSection
+
+                    Button {
+                        viewModel.continueToResult()
+                    } label: {
+                        Text("Create Style Card")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 50)
                     }
-                    .padding(.horizontal, hPad)
-
-                    checksCard
-                        .padding(.horizontal, hPad)
-
-                    simulationCard
-                        .padding(.horizontal, hPad)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(!viewModel.selectedPalettePasses)
+                    .accessibilityHint("Moves to final style card")
 
                     if !viewModel.selectedPalettePasses {
-                        hintRow
-                            .padding(.horizontal, hPad)
+                        let failingModes = viewModel.inclusiveReport
+                            .filter { !$0.passes }
+                            .map(\.mode.rawValue)
+                        Label(
+                            failingModes.isEmpty
+                                ? "Apply one-tap fixes until all checks pass."
+                                : "Issues in \(failingModes.joined(separator: ", ")). Apply fixes or try a different base color.",
+                            systemImage: "lightbulb.fill"
+                        )
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, 4)
                     }
                 }
-
-                Spacer().frame(height: 8)
             }
-            .padding(.bottom, 8)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
         }
         .scrollIndicators(.hidden)
-    }
-
-    private var pageTitleBlock: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(viewModel.selectedPalette?.template.rawValue ?? "Palette")
-                .font(.title.weight(.bold))
-
-            Label("Step 2 of 3  ·  Tune and validate", systemImage: "2.circle.fill")
-                .symbolRenderingMode(.hierarchical)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
+        .navigationTitle(viewModel.selectedPalette?.template.rawValue ?? "Detail")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                BadgeView(
+                    title: viewModel.inclusivePasses ? "Inclusive" : "Needs Fix",
+                    isPositive: viewModel.inclusivePasses
+                )
+            }
         }
+        .background(.clear)
     }
 
-    // MARK: - Readability Checks Card
+    // MARK: - Inclusive Coverage
 
-    private var checksCard: some View {
-        GlassSurface(stylePreset: viewModel.stylePreset, cornerRadius: 20, padding: 16) {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Readability Checks")
-                    .font(.title3.weight(.semibold))
+    private var inclusiveCoverageSection: some View {
+        let report = viewModel.inclusiveReport
+        let passCount = report.filter(\.passes).count
+        let total = report.count
 
-                VStack(spacing: 0) {
-                    ForEach(Array(viewModel.selectedChecks.enumerated()), id: \.offset) { index, item in
-                        if index > 0 { Divider() }
-                        CheckRowView(item: item)
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Inclusive coverage")
+                    .font(.headline)
+                Spacer()
+                Text("\(passCount)/\(total)")
+                    .font(.subheadline.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(passCount == total ? Color.green : Color.orange)
+            }
+            .padding(.horizontal, 4)
+
+            VStack(spacing: 0) {
+                ForEach(Array(report.enumerated()), id: \.element.id) { index, status in
+                    modeRow(status: status)
+
+                    if index < report.count - 1 {
+                        Divider().padding(.leading, 46)
                     }
                 }
             }
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
     }
 
-    // MARK: - Simulation + Fixes Card
+    private func modeRow(status: HueBridgeViewModel.ModeStatus) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                viewModel.visionMode = status.mode
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: status.passes ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                    .foregroundStyle(status.passes ? Color.green : Color.red)
+                    .font(.title3)
 
-    private var simulationCard: some View {
-        GlassSurface(stylePreset: viewModel.stylePreset, cornerRadius: 20, padding: 16) {
-            VStack(alignment: .leading, spacing: 14) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "eye")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        Text("Color Vision Simulation")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                    Picker("Color vision simulation", selection: $viewModel.visionMode) {
-                        ForEach(VisionMode.allCases) { mode in
-                            Text(mode.rawValue).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityLabel("Simulation mode")
-                    .accessibilityHint("Applies preview-only color vision simulation")
+                Text(status.mode.rawValue)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary)
+
+                Spacer()
+
+                if !status.passes {
+                    Text("\(status.issueCount) issue\(status.issueCount == 1 ? "" : "s")")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.red)
                 }
 
-                Divider()
+                if viewModel.visionMode == status.mode {
+                    Image(systemName: "eye.fill")
+                        .font(.caption)
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
 
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "wand.and.sparkles")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        Text("One-tap Fixes")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                    }
+    // MARK: - Checks
 
-                    HStack(spacing: 10) {
-                        fixButton("Darken Text", icon: "textformat", action: viewModel.makeTextDarker)
-                        fixButton("Lighten Background", icon: "sun.max", action: viewModel.lightenBackground)
+    private var checksSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Text("Readability")
+                    .font(.headline)
+                Text("· \(viewModel.visionMode.rawValue)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 4)
+
+            VStack(spacing: 0) {
+                ForEach(Array(viewModel.selectedChecks.enumerated()), id: \.element.id) { index, item in
+                    CheckRowView(item: item)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+
+                    if index < viewModel.selectedChecks.count - 1 {
+                        Divider().padding(.leading, 46)
                     }
                 }
             }
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
     }
 
-    private func fixButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    // MARK: - Distinguishability
+
+    private var distinguishabilitySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Text("Distinguishability")
+                    .font(.headline)
+                Text("· \(viewModel.visionMode.rawValue)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 4)
+
+            VStack(spacing: 0) {
+                ForEach(Array(viewModel.selectedDistinguishability.enumerated()), id: \.element.id) { index, item in
+                    CheckRowView(item: item)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+
+                    if index < viewModel.selectedDistinguishability.count - 1 {
+                        Divider().padding(.leading, 46)
+                    }
+                }
+            }
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+    }
+
+    // MARK: - Fix Buttons
+
+    private var fixButtonsSection: some View {
+        VStack(spacing: 10) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    fixButton(title: "Make text darker", icon: "textformat", action: viewModel.makeTextDarker)
+                    fixButton(title: "Lighten background", icon: "sun.max", action: viewModel.lightenBackground)
+                }
+
+                VStack(spacing: 10) {
+                    fixButton(title: "Make text darker", icon: "textformat", action: viewModel.makeTextDarker)
+                    fixButton(title: "Lighten background", icon: "sun.max", action: viewModel.lightenBackground)
+                }
+            }
+
+            if viewModel.canUndo {
+                Button {
+                    viewModel.undoFix()
+                    #if canImport(UIKit)
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    #endif
+                } label: {
+                    Label("Undo last fix", systemImage: "arrow.uturn.backward")
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.bordered)
+                .tint(.secondary)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .accessibilityLabel("Undo last fix")
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: viewModel.canUndo)
+    }
+
+    private func fixButton(title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            #if canImport(UIKit)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            #endif
+        } label: {
             Label(title, systemImage: icon)
-                .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity)
-                .frame(height: 44)
+                .frame(minHeight: 44)
         }
         .buttonStyle(.bordered)
         .accessibilityLabel(title)
     }
 
-    // MARK: - Hint Row
+    // MARK: - Poster Settings
 
-    private var hintRow: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "lightbulb")
-                .font(.subheadline)
-                .foregroundStyle(.orange)
-            Text("Apply fixes until all checks show Pass.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+    private var posterSettingsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Poster content")
+                .font(.headline)
+                .padding(.horizontal, 4)
+
+            VStack(spacing: 0) {
+                // Size picker
+                HStack {
+                    Text("Size")
+                        .font(.subheadline.weight(.medium))
+                    Spacer()
+                    Picker("Size", selection: $viewModel.posterSize) {
+                        ForEach(PosterSize.allCases) { size in
+                            Label(size.rawValue, systemImage: size.icon).tag(size)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 240)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+
+                Divider().padding(.leading, 14)
+
+                posterTextField(label: "Headline", text: $viewModel.posterContent.headline)
+                Divider().padding(.leading, 14)
+                posterTextField(label: "Body", text: $viewModel.posterContent.body, axis: .vertical)
+                Divider().padding(.leading, 14)
+                posterTextField(label: "Button", text: $viewModel.posterContent.buttonText)
+                Divider().padding(.leading, 14)
+
+                HStack(spacing: 10) {
+                    posterCompactField(label: "Organizer", text: $viewModel.posterContent.organizer)
+                    posterCompactField(label: "Date", text: $viewModel.posterContent.date)
+                    posterCompactField(label: "Venue", text: $viewModel.posterContent.venue)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+            }
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
     }
 
-    // MARK: - Bottom CTA
-
-    private var ctaSection: some View {
-        VStack(spacing: 0) {
-            Divider()
-            Button {
-                viewModel.continueToResult()
-            } label: {
-                Text("Create Style Card")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 54)
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(!viewModel.selectedPalettePasses)
-            .padding(.horizontal, hPad)
-            .padding(.top, 12)
-            .padding(.bottom, 20)
-            .accessibilityHint("Moves to the final style card")
+    private func posterTextField(label: String, text: Binding<String>, axis: Axis = .horizontal) -> some View {
+        HStack(alignment: axis == .vertical ? .top : .center) {
+            Text(label)
+                .font(.subheadline.weight(.medium))
+                .frame(width: 70, alignment: .leading)
+            TextField(label, text: text, axis: axis)
+                .font(.subheadline)
+                .textFieldStyle(.plain)
+                .lineLimit(axis == .vertical ? 3 : 1)
         }
-        .background(.regularMaterial)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    private func posterCompactField(label: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
+            TextField(label, text: text)
+                .font(.caption)
+                .textFieldStyle(.plain)
+                .lineLimit(1)
+        }
+    }
+
+    // MARK: - Step
+
+    private var stepPill: some View {
+        StepIndicatorView(currentStep: 2, subtitle: "Tune and validate")
     }
 }

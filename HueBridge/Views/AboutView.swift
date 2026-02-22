@@ -15,9 +15,13 @@ struct AboutView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("HueBridge") {
-                    Text("HueBridge is an offline micro-studio for creating readable, color-vision-friendly poster palettes.")
-                    Text("No network used; runs fully offline.")
+                Section {
+                    Label("Offline micro-studio for creating readable, color‑vision‑friendly poster palettes.", systemImage: "eyedropper.halffull")
+                        .font(.subheadline)
+                    Label("No network used; runs fully on device.", systemImage: "wifi.slash")
+                        .font(.subheadline)
+                } header: {
+                    Text("About")
                 }
 
                 Section("Appearance") {
@@ -30,16 +34,18 @@ struct AboutView: View {
                 }
 
                 Section("Credits") {
-                    Text("WCAG 2 contrast ratio reference")
-                    Text("Machado et al. color vision deficiency simulation")
+                    Label("WCAG 2 contrast ratio reference", systemImage: "doc.text")
+                    Label("Machado et al. CVD simulation", systemImage: "eye")
                 }
             }
             .navigationTitle("About")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         dismiss()
                     }
+                    .fontWeight(.semibold)
                 }
             }
         }

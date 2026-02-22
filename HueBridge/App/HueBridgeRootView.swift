@@ -13,58 +13,43 @@ import UIKit
 
 struct HueBridgeRootView: View {
     @StateObject private var viewModel = HueBridgeViewModel()
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
             AppBackdrop(stylePreset: viewModel.stylePreset)
                 .ignoresSafeArea()
 
-            content
-                .frame(maxWidth: 820)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .animation(
-                    reduceMotion ? nil : .spring(duration: 0.42, bounce: 0.04),
-                    value: viewModel.stage
+            NavigationStack(path: $viewModel.navigationPath) {
+                WelcomeView(
+                    startAction: viewModel.startExperience,
+                    aboutAction: { viewModel.showAbout = true }
                 )
+                .navigationDestination(for: HueBridgeViewModel.Stage.self) { stage in
+                    switch stage {
+                    case .gallery:
+                        PaletteGalleryView(viewModel: viewModel)
+                    case .detail:
+                        PaletteDetailView(viewModel: viewModel)
+                    case .result:
+                        ResultCardView(viewModel: viewModel)
+                    case .welcome:
+                        EmptyView()
+                    }
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
         }
+        .tint(.accentColor)
         .sheet(isPresented: $viewModel.showAbout) {
             AboutView(stylePreset: $viewModel.stylePreset)
         }
     }
-
-    @ViewBuilder
-    private var content: some View {
-        switch viewModel.stage {
-        case .welcome:
-            WelcomeView(
-                stylePreset: viewModel.stylePreset,
-                startAction: viewModel.startExperience,
-                aboutAction: { viewModel.showAbout = true }
-            )
-            .transition(stageTransition)
-        case .gallery:
-            PaletteGalleryView(viewModel: viewModel)
-                .transition(stageTransition)
-        case .detail:
-            PaletteDetailView(viewModel: viewModel)
-                .transition(stageTransition)
-        case .result:
-            ResultCardView(viewModel: viewModel)
-                .transition(stageTransition)
-        }
-    }
-
-    private var stageTransition: AnyTransition {
-        guard !reduceMotion else { return .opacity }
-        return .asymmetric(
-            insertion: .opacity.combined(with: .move(edge: .trailing)),
-            removal: .opacity.combined(with: .move(edge: .leading))
-        )
-    }
 }
 
-private struct AppBackdrop: View {
+// MARK: - Background
+
+struct AppBackdrop: View {
     let stylePreset: StylePreset
 
     var body: some View {

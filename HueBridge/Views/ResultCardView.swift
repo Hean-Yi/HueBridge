@@ -7,178 +7,231 @@
 
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct ResultCardView: View {
     @ObservedObject var viewModel: HueBridgeViewModel
     @State private var copied = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-
-    private var hPad: CGFloat { horizontalSizeClass == .compact ? 20 : 28 }
+    @State private var exportedImage: UIImage?
+    @State private var showShareSheet = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                pageHeader
-                    .padding(.horizontal, hPad)
-                    .padding(.top, 16)
+                HStack {
+                    StepIndicatorView(currentStep: 3, subtitle: "Export")
+                    Spacer()
+                    BadgeView(
+                        title: "Inclusive Poster Ready",
+                        isPositive: true,
+                        animated: true
+                    )
+                    .accessibilityLabel("Inclusive Poster Ready")
+                }
 
                 if let palette = viewModel.selectedPalette {
-                    BadgeView(title: "Inclusive Poster Ready", isPositive: true, animated: true)
-                        .padding(.horizontal, hPad)
-                        .accessibilityLabel("Inclusive Poster Ready")
-                        .accessibilityHint("All readability checks passed")
-
-                    GlassSurface(stylePreset: viewModel.stylePreset, cornerRadius: 20, padding: 14) {
-                        PosterPreview(palette: palette, visionMode: .normal)
-                    }
-                    .padding(.horizontal, hPad)
+                    PosterPreview(
+                        palette: palette,
+                        visionMode: .normal,
+                        content: viewModel.posterContent,
+                        posterSize: viewModel.posterSize
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
                     styleCard(for: palette)
-                        .padding(.horizontal, hPad)
 
-                    guidanceCard(for: palette)
-                        .padding(.horizontal, hPad)
+                    guidanceSection(for: palette)
+
+                    actionsSection
                 }
-
-                Spacer().frame(height: 8)
             }
-            .padding(.bottom, 8)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
         }
         .scrollIndicators(.hidden)
-        .safeAreaInset(edge: .bottom) {
-            bottomActions
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    // MARK: - Page Header
-
-    private var pageHeader: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Your Style Card")
-                .font(.largeTitle.weight(.bold))
-
-            Label("Step 3 of 3  ·  Done", systemImage: "3.circle.fill")
-                .symbolRenderingMode(.hierarchical)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    // MARK: - Style Card (Token List)
-
-    private func styleCard(for palette: PaletteCandidate) -> some View {
-        GlassSurface(stylePreset: viewModel.stylePreset, cornerRadius: 20, padding: 16) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Style Card")
-                    .font(.title3.weight(.semibold))
-
-                VStack(spacing: 0) {
-                    ForEach(Array(palette.tokens.enumerated()), id: \.offset) { index, token in
-                        if index > 0 { Divider() }
-                        tokenRow(token)
-                    }
-                }
-                .background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-        }
-    }
-
-    private func tokenRow(_ token: ColorToken) -> some View {
-        HStack(spacing: 14) {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(token.rgba.color)
-                .frame(width: 40, height: 40)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(.primary.opacity(0.12), lineWidth: 1)
-                )
-
-            Text(token.name)
-                .font(.body)
-
-            Spacer()
-
-            Text(viewModel.hexString(for: token.rgba))
-                .font(.body.monospaced())
-                .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frame(minHeight: 52)
-    }
-
-    // MARK: - Guidance Card
-
-    private func guidanceCard(for palette: PaletteCandidate) -> some View {
-        GlassSurface(stylePreset: viewModel.stylePreset, cornerRadius: 20, padding: 16) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 6) {
-                    Image(systemName: "lightbulb.fill")
-                        .foregroundStyle(.yellow)
-                    Text("Recommended Usage")
-                        .font(.headline)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(palette.guidance, id: \.self) { line in
-                        HStack(alignment: .top, spacing: 8) {
-                            Image(systemName: "arrow.right")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .padding(.top, 3)
-                            Text(line)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // MARK: - Bottom Action Bar
-
-    private var bottomActions: some View {
-        VStack(spacing: 0) {
-            Divider()
-            VStack(spacing: 10) {
+        .navigationTitle("Style Card")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    viewModel.copyStyleCardToClipboard()
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
-                        copied = true
-                    }
+                    performCopy()
                 } label: {
-                    Label(
-                        copied ? "Copied!" : "Copy HEX Values",
-                        systemImage: copied ? "checkmark" : "doc.on.doc"
-                    )
+                    Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                .accessibilityLabel("Copy HEX values")
+            }
+        }
+        .background(.clear)
+        .sheet(isPresented: $showShareSheet) {
+            if let image = exportedImage {
+                ShareSheet(items: [image])
+            }
+        }
+    }
+
+    // MARK: - Style Card
+
+    @ViewBuilder
+    private func styleCard(for palette: PaletteCandidate) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Style Card")
+                .font(.headline)
+                .padding(.horizontal, 4)
+
+            VStack(spacing: 0) {
+                ForEach(Array(palette.tokens.enumerated()), id: \.element.id) { index, token in
+                    HStack(spacing: 12) {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(token.rgba.color)
+                            .frame(width: 36, height: 36)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .stroke(.quaternary, lineWidth: 1)
+                            )
+
+                        Text(token.name)
+                            .font(.body)
+
+                        Spacer()
+
+                        Text(viewModel.hexString(for: token.rgba))
+                            .font(.body.monospaced())
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+
+                    if index < palette.tokens.count - 1 {
+                        Divider().padding(.leading, 62)
+                    }
+                }
+            }
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+    }
+
+    // MARK: - Guidance
+
+    @ViewBuilder
+    private func guidanceSection(for palette: PaletteCandidate) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Recommended usage")
+                .font(.headline)
+                .padding(.horizontal, 4)
+
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(palette.guidance, id: \.self) { line in
+                    Label(line, systemImage: "checkmark.circle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .symbolRenderingMode(.hierarchical)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+    }
+
+    // MARK: - Actions
+
+    private var actionsSection: some View {
+        VStack(spacing: 12) {
+            // Primary: Export poster image
+            Button {
+                exportPosterImage()
+            } label: {
+                Label("Export Poster Image", systemImage: "square.and.arrow.up")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 54)
+                    .frame(height: 50)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .accessibilityLabel("Export poster as image")
+
+            // Secondary: Copy HEX values
+            Button {
+                performCopy()
+            } label: {
+                Label(copied ? "Copied!" : "Copy HEX Values", systemImage: copied ? "checkmark" : "doc.on.doc")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .accessibilityLabel("Copy HEX values")
+
+            HStack(spacing: 12) {
+                Button {
+                    viewModel.backToChooseAnother()
+                } label: {
+                    Label("Change Template", systemImage: "arrow.uturn.left")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
                 }
-                .buttonStyle(.borderedProminent)
-                .animation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0.2), value: copied)
-                .accessibilityLabel(copied ? "Copied to clipboard" : "Copy HEX values")
-                .accessibilityHint("Copies all color hex values to clipboard")
+                .buttonStyle(.bordered)
+                .tint(.secondary)
 
                 Button {
                     viewModel.restart()
                     copied = false
                 } label: {
-                    Text("Start Over")
+                    Label("Start Over", systemImage: "arrow.counterclockwise")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
                         .frame(height: 44)
                 }
-                .buttonStyle(.plain)
-                .accessibilityHint("Returns to the welcome screen")
+                .buttonStyle(.bordered)
+                .tint(.secondary)
             }
-            .padding(.horizontal, hPad)
-            .padding(.top, 12)
-            .padding(.bottom, 20)
         }
-        .background(.regularMaterial)
+    }
+
+    // MARK: - Helpers
+
+    private func performCopy() {
+        viewModel.copyStyleCardToClipboard()
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
+        withAnimation(.easeInOut(duration: 0.2)) {
+            copied = true
+        }
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            await MainActor.run {
+                withAnimation { copied = false }
+            }
+        }
+    }
+
+    private func exportPosterImage() {
+        #if canImport(UIKit)
+        guard let image = viewModel.renderPosterImage() else { return }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        exportedImage = image
+        showShareSheet = true
+        #endif
     }
 }
+
+// MARK: - Share Sheet
+
+#if canImport(UIKit)
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+#endif

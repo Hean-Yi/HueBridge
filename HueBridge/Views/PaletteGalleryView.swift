@@ -10,178 +10,113 @@ import SwiftUI
 
 struct PaletteGalleryView: View {
     @ObservedObject var viewModel: HueBridgeViewModel
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-
-    private var hPad: CGFloat { horizontalSizeClass == .compact ? 20 : 28 }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                pageHeader
-                    .padding(.horizontal, hPad)
-                    .padding(.top, 16)
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Pick a base color and compare three inclusive templates.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 4)
 
-                controlsCard
-                    .padding(.horizontal, hPad)
+                stepPill
 
-                candidateCards
-                    .padding(.horizontal, hPad)
-                    .padding(.bottom, 32)
+                controls
+
+                ForEach(viewModel.candidates) { candidate in
+                    PaletteCard(
+                        palette: candidate,
+                        passes: viewModel.candidatePasses(candidate),
+                        onTap: { viewModel.openDetails(for: candidate) }
+                    )
+                }
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
         }
         .scrollIndicators(.hidden)
-        .frame(maxWidth: .infinity)
-    }
-
-    // MARK: - Page Header
-
-    private var pageHeader: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Choose a Palette")
-                    .font(.largeTitle.weight(.bold))
-
-                Label("Step 1 of 3", systemImage: "1.circle.fill")
-                    .symbolRenderingMode(.hierarchical)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
+        .navigationTitle("Palette Gallery")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    viewModel.showAbout = true
+                } label: {
+                    Image(systemName: "info.circle")
+                }
+                .accessibilityLabel("About")
             }
-
-            Spacer(minLength: 12)
-
-            Button {
-                viewModel.showAbout = true
-            } label: {
-                Image(systemName: "info.circle")
-                    .font(.title2.weight(.regular))
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .accessibilityLabel("About HueBridge")
         }
+        .background(.clear)
     }
 
-    // MARK: - Controls Card
+    // MARK: - Controls
 
-    private var controlsCard: some View {
-        GlassSurface(stylePreset: viewModel.stylePreset, cornerRadius: 20, padding: 16) {
-            VStack(alignment: .leading, spacing: 16) {
-                baseColorRow
+    private var controls: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Base color")
+                    .font(.headline)
+
+                Spacer(minLength: 12)
+
                 ColorPicker(
-                    "Choose a base color",
+                    "Pick base color",
                     selection: Binding(
                         get: { viewModel.baseColor.color },
                         set: { viewModel.chooseBaseColor($0) }
                     ),
                     supportsOpacity: false
                 )
+                .labelsHidden()
                 .accessibilityLabel("Base color picker")
 
-                presetChips
-
-                Divider()
-
-                stylePresetRow
-            }
-        }
-    }
-
-    private var baseColorRow: some View {
-        HStack(spacing: 10) {
-            Text("Base Color")
-                .font(.headline)
-
-            Spacer()
-
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(viewModel.baseColor.color)
-                    .frame(width: 12, height: 12)
-                    .overlay(Circle().stroke(.primary.opacity(0.15), lineWidth: 0.5))
                 Text(viewModel.hexString(for: viewModel.baseColor))
-                    .font(.caption.monospaced())
+                    .font(.footnote.monospaced())
                     .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(.quaternary)
+                    )
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Capsule(style: .continuous).fill(.primary.opacity(0.07)))
-        }
-    }
 
-    private var presetChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(viewModel.basePresets) { preset in
-                    let isSelected = preset.color == viewModel.baseColor
-                    Button {
-                        viewModel.choosePreset(preset)
-                    } label: {
-                        HStack(spacing: 8) {
-                            Circle()
-                                .fill(preset.color.color)
-                                .frame(width: 14, height: 14)
-                                .overlay(Circle().stroke(.primary.opacity(0.12), lineWidth: 0.5))
-                            Text(preset.name)
-                                .font(.subheadline.weight(.semibold))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(viewModel.basePresets) { preset in
+                        let isSelected = preset.color == viewModel.baseColor
+                        Button {
+                            viewModel.choosePreset(preset)
+                        } label: {
+                            HStack(spacing: 7) {
+                                Circle()
+                                    .fill(preset.color.color)
+                                    .frame(width: 14, height: 14)
+                                Text(preset.name)
+                                    .font(.subheadline.weight(.medium))
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(isSelected ? preset.color.color.opacity(0.22) : Color.primary.opacity(0.08))
+                            )
                         }
-                        .padding(.horizontal, 14)
-                        .frame(height: 36)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(isSelected
-                                    ? preset.color.color.opacity(0.20)
-                                    : Color.primary.opacity(0.07))
-                        )
-                        .overlay(
-                            Capsule(style: .continuous)
-                                .stroke(
-                                    isSelected ? preset.color.color.opacity(0.45) : Color.clear,
-                                    lineWidth: 1.5
-                                )
-                        )
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(preset.name) preset")
+                        .accessibilityAddTraits(isSelected ? .isSelected : [])
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(preset.name) preset\(isSelected ? ", selected" : "")")
                 }
             }
         }
+        .padding(16)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
-    private var stylePresetRow: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
-                Image(systemName: "paintpalette")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Text("Interface Style")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-            Picker("Interface style", selection: $viewModel.stylePreset) {
-                ForEach(StylePreset.allCases) { preset in
-                    Text(preset.rawValue).tag(preset)
-                }
-            }
-            .pickerStyle(.segmented)
-            .accessibilityLabel("Style preset")
-            .accessibilityHint("Switches glass and flat appearance")
-        }
-    }
+    // MARK: - Step
 
-    // MARK: - Candidate Cards
-
-    private var candidateCards: some View {
-        VStack(spacing: 12) {
-            ForEach(viewModel.candidates) { candidate in
-                PaletteCard(
-                    palette: candidate,
-                    passes: viewModel.candidatePasses(candidate),
-                    stylePreset: viewModel.stylePreset,
-                    onTap: { viewModel.openDetails(for: candidate) }
-                )
-            }
-        }
+    private var stepPill: some View {
+        StepIndicatorView(currentStep: 1, subtitle: "Choose a candidate")
     }
 }

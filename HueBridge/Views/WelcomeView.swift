@@ -9,152 +9,124 @@
 import SwiftUI
 
 struct WelcomeView: View {
-    let stylePreset: StylePreset
     let startAction: () -> Void
     let aboutAction: () -> Void
 
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-
-    private var hPad: CGFloat { horizontalSizeClass == .compact ? 20 : 32 }
-
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-
-            hero
-                .padding(.horizontal, hPad)
-
-            Spacer().frame(height: 44)
-
-            featureList
-                .padding(.horizontal, hPad)
-
-            Spacer()
+        ScrollView {
+            VStack(spacing: 28) {
+                heroSection
+                featuresCard
+                ctaSection
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
         }
-        .safeAreaInset(edge: .bottom) {
-            ctaSection
+        .scrollIndicators(.hidden)
+        .navigationTitle("HueBridge")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: aboutAction) {
+                    Image(systemName: "info.circle")
+                }
+                .accessibilityLabel("About HueBridge")
+            }
         }
+        .background(.clear)
     }
 
     // MARK: - Hero
 
-    private var hero: some View {
-        VStack(spacing: 24) {
-            appIcon
+    private var heroSection: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 80, height: 80)
+                Image(systemName: "eyedropper.halffull")
+                    .font(.system(size: 34, weight: .semibold))
+                    .foregroundStyle(.tint)
+                    .symbolRenderingMode(.hierarchical)
+            }
+            .padding(.top, 4)
+            .accessibilityHidden(true)
 
-            VStack(spacing: 10) {
-                Text("HueBridge")
-                    .font(.largeTitle.weight(.bold))
+            VStack(spacing: 8) {
+                Text("Design that everyone\ncan read.")
+                    .font(.title2.weight(.bold))
+                    .multilineTextAlignment(.center)
 
-                Text("Design that everyone can read.")
-                    .font(.title3)
+                Text("Build poster palettes with accessibility checks, color‑vision simulation, and one‑tap contrast fixes.")
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
         }
     }
 
-    private var appIcon: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(.regularMaterial)
-                .frame(width: 96, height: 96)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .stroke(.white.opacity(0.30), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.10), radius: 24, x: 0, y: 8)
+    // MARK: - Features
 
-            Image(systemName: "eyedropper.halffull")
-                .font(.system(size: 42, weight: .medium))
-                .foregroundStyle(.tint)
-                .symbolRenderingMode(.hierarchical)
-        }
-        .accessibilityHidden(true)
-    }
-
-    // MARK: - Feature List
-
-    private var featureList: some View {
+    private var featuresCard: some View {
         VStack(spacing: 0) {
             featureRow(
-                "3-step guided workflow",
-                caption: "Gallery → Validate → Export",
+                "3-step guided flow",
+                subtitle: "Pick, tune, and export",
                 icon: "list.number",
-                accent: .blue
+                color: .blue
             )
-            Divider().padding(.leading, 58)
+            Divider().padding(.leading, 66)
             featureRow(
-                "WCAG contrast validation",
-                caption: "AA standard across all text roles",
+                "WCAG contrast checks",
+                subtitle: "Real-time readability feedback",
                 icon: "checkmark.shield.fill",
-                accent: .green
+                color: .green
             )
-            Divider().padding(.leading, 58)
+            Divider().padding(.leading, 66)
             featureRow(
-                "Offline & privacy-friendly",
-                caption: "No network, no tracking",
+                "Offline & private",
+                subtitle: "No data leaves your device",
                 icon: "lock.fill",
-                accent: .purple
+                color: .orange
             )
         }
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(.primary.opacity(0.08), lineWidth: 1)
-        )
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
-    private func featureRow(_ title: String, caption: String, icon: String, accent: Color) -> some View {
+    private func featureRow(_ title: String, subtitle: String, icon: String, color: Color) -> some View {
         HStack(spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(accent.opacity(0.16))
-                    .frame(width: 36, height: 36)
-                Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(accent)
-            }
+            Image(systemName: icon)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(color)
+                .frame(width: 36, height: 36)
+                .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(.primary)
-                Text(caption)
+                    .font(.subheadline.weight(.semibold))
+                Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Spacer()
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.vertical, 12)
     }
 
-    // MARK: - Bottom CTA
+    // MARK: - CTA
 
     private var ctaSection: some View {
-        VStack(spacing: 10) {
-            Button(action: startAction) {
-                Label("Get Started", systemImage: "sparkles")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 54)
-            }
-            .buttonStyle(.borderedProminent)
-            .accessibilityHint("Begins palette generation")
-
-            Button(action: aboutAction) {
-                Text("About HueBridge")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .frame(height: 44)
-            }
-            .buttonStyle(.plain)
+        Button(action: startAction) {
+            Label("Start Palette Session", systemImage: "sparkles")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
         }
-        .padding(.horizontal, hPad)
-        .padding(.top, 16)
-        .padding(.bottom, 20)
-        .background(.regularMaterial)
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .accessibilityHint("Begins palette generation")
     }
 }

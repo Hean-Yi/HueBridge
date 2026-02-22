@@ -25,8 +25,7 @@ struct BadgeView: View {
                 .symbolRenderingMode(.hierarchical)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .frame(minHeight: 44)
+        .padding(.vertical, 6)
         .foregroundStyle(isPositive ? Color.green : Color.orange)
         .background(
             Capsule(style: .continuous)

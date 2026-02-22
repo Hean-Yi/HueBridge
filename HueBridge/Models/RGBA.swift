@@ -77,6 +77,11 @@ struct RGBA: Hashable, Codable {
 
     static let black = RGBA(red: 0, green: 0, blue: 0)
     static let white = RGBA(red: 1, green: 1, blue: 1)
+
+    /// iOS system dark label color (#1C1C1E)
+    static let systemDarkGray = RGBA(red: 0.110, green: 0.110, blue: 0.118)
+    /// iOS system light label color (#F5F5F7)
+    static let systemLightGray = RGBA(red: 0.961, green: 0.961, blue: 0.969)
 }
 
 private extension Double {
